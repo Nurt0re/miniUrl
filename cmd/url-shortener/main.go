@@ -3,10 +3,14 @@ package main
 import (
 	"log/slog"
 	"miniUrl/internal/config"
+	del "miniUrl/internal/http-server/handlers/delete"
+	"miniUrl/internal/http-server/handlers/redirect"
+	"miniUrl/internal/http-server/handlers/url/save"
 	mwLogger "miniUrl/internal/http-server/middleware/logger"
 	"miniUrl/internal/lib/logger/handlers/slogpretty"
 	"miniUrl/internal/lib/logger/sl"
 	"miniUrl/internal/storage/sqlite"
+	"net/http"
 	"os"
 
 	"github.com/go-chi/chi/middleware"
@@ -37,17 +41,33 @@ func main() {
 	// id, _ := storage.SaveURL("https://chatgpt.com/", "chat")
 	// log.Info("id", id)
 
-	str, _ := storage.GetURL("chat")
+	// str, _ := storage.GetURL("chat")
 
-	log.Info("link for chat", slog.String("url", str))
+	// log.Info("link for chat", slog.String("url", str))
 	router := chi.NewRouter()
 
 	router.Use(middleware.RequestID)
 	router.Use(middleware.Logger)
 	router.Use(mwLogger.New(log))
 	router.Use(middleware.Recoverer)
-	router.Use(middleware.URLFormat)
-	_ = storage
+	//router.Use(middleware.URLFormat)
+
+	router.Post("/url", save.New(log, storage))
+	router.Get("/{alias}", redirect.New(log, storage))
+	router.Delete("/{alias}", del.New(log, storage))
+	log.Info("starting server", slog.String("address", cfg.Address))
+
+	srv := &http.Server{
+		Addr:         cfg.Address,
+		Handler:      router,
+		ReadTimeout:  cfg.HTTPServer.Timeout,
+		WriteTimeout: cfg.HTTPServer.Timeout,
+		IdleTimeout:  cfg.HTTPServer.IdleTimeout,
+	}
+	if err := srv.ListenAndServe(); err != nil {
+		log.Error("failed to start server")
+	}
+	log.Error("server stopped")
 }
 
 func setupLogger(env string) *slog.Logger {
