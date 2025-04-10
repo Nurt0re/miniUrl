@@ -8,8 +8,8 @@ import (
 	"miniUrl/internal/storage"
 	"net/http"
 
-	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 )
 
@@ -26,10 +26,8 @@ func New(log *slog.Logger, urlGetter URLGetter) http.HandlerFunc {
 			slog.String("request_id", middleware.GetReqID(r.Context())),
 		)
 
-		log.Debug("raw request URL", slog.String("url", r.URL.String())) // Log raw request URL
-
 		alias := chi.URLParam(r, "alias")
-		log.Debug("extracted alias", slog.String("alias", alias)) // Debug log for alias
+
 		if alias == "" {
 			log.Info("alias is empty")
 			render.JSON(w, r, resp.Error("invalid request"))

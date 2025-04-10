@@ -22,6 +22,7 @@ func OK() Response {
 		Status: StatusOK,
 	}
 }
+
 func Error(msg string) Response {
 	return Response{
 		Status: StatusError,

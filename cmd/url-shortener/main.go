@@ -29,8 +29,8 @@ func main() {
 
 	log := setupLogger(cfg.Env)
 	log.Info("starting url shortener", slog.String("env", cfg.Env))
-	log.Debug("debug messages are enabled")
-	log.Error("error mesages are enabled")
+	//log.Debug("debug messages are enabled")
+	//log.Error("error mesages are enabled")
 
 	storage, err := sqlite.New(cfg.StoragePath)
 	if err != nil {
@@ -38,23 +38,24 @@ func main() {
 		os.Exit(1)
 	}
 
-	// id, _ := storage.SaveURL("https://chatgpt.com/", "chat")
-	// log.Info("id", id)
-
-	// str, _ := storage.GetURL("chat")
-
-	// log.Info("link for chat", slog.String("url", str))
 	router := chi.NewRouter()
 
 	router.Use(middleware.RequestID)
 	router.Use(middleware.Logger)
 	router.Use(mwLogger.New(log))
 	router.Use(middleware.Recoverer)
-	//router.Use(middleware.URLFormat)
+	router.Use(middleware.URLFormat)
 
-	router.Post("/url", save.New(log, storage))
+	router.Route("/url", func(r chi.Router) {
+		r.Use(middleware.BasicAuth("url-shortener", map[string]string{
+			cfg.HTTPServer.User: cfg.HTTPServer.Password,
+		}))
+		r.Post("/", save.New(log, storage))
+		r.Delete("/{alias}", del.New(log, storage))
+	})
+
 	router.Get("/{alias}", redirect.New(log, storage))
-	router.Delete("/{alias}", del.New(log, storage))
+
 	log.Info("starting server", slog.String("address", cfg.Address))
 
 	srv := &http.Server{
